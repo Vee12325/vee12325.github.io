@@ -33,23 +33,47 @@ mapL1, mapL2 = cv2.initUndistortRectifyMap(mtxL, distL, R1, P1, image_size, cv2.
 mapR1, mapR2 = cv2.initUndistortRectifyMap(mtxR, distR, R2, P2, image_size, cv2.CV_32FC1)
 
 # --- 5. ตั้งค่า Stereo SGBM (เหมือนเดิม) ---
-stereo = cv2.StereoSGBM_create(
-    minDisparity=0,
-    numDisparities=128,        # รองรับวัตถุใกล้ (~0.4–0.5 m) ถึงไกล (~4–5 m)
-    blockSize=7,               # กำลังดีสำหรับ detail ปานกลาง
+#stereo = cv2.StereoSGBM_create(
+#    minDisparity=16,
+#    numDisparities=16,        # รองรับวัตถุใกล้ (~0.4–0.5 m) ถึงไกล (~4–5 m)
+#    blockSize=7,               # กำลังดีสำหรับ detail ปานกลาง
 
-    P1=8 * 3 * 7**2,
-    P2=32 * 3 * 7**2,
+#    P1=8 * 3 * 7**2,
+#    P2=32 * 3 * 7**2,
+
+#    disp12MaxDiff=1,
+#    uniquenessRatio=10,        # match ต้องชัดขึ้น
+#    speckleWindowSize=50,      # กำจัด noise
+#    speckleRange=2,
+#    preFilterCap=63,
+#    mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY
+#)
+
+window_size = 7
+min_disp = 16
+num_disp = 16   # ต้องหารด้วย 16 ลงตัว เช่น 16, 32, 64, ...
+
+stereo = cv2.StereoSGBM(
+    minDisparity=min_disp,
+    numDisparities=num_disp,
+    SADWindowSize=window_size,
+
+    P1=8 * 3 * window_size ** 2,
+    P2=32 * 3 * window_size ** 2,
 
     disp12MaxDiff=1,
-    uniquenessRatio=10,        # match ต้องชัดขึ้น
-    speckleWindowSize=50,      # กำจัด noise
+    uniquenessRatio=10,
+    speckleWindowSize=50,
     speckleRange=2,
-    preFilterCap=63,
-    mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY
+    fullDP=False
 )
 
 print("\nเริ่มต้นแสดงภาพ... กด 'q' เพื่อออกจากโปรแกรม")
+disp = stereo.compute(capL, capR).astype(np.float32) / 16.0
+disp_img = (disp - min_disp) / num_disp
+
+
+#print("\nเริ่มต้นแสดงภาพ... กด 'q' เพื่อออกจากโปรแกรม")
 
 # --- 6. วนลูปเพื่อแสดงผล ---
 while True:
