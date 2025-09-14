@@ -50,68 +50,61 @@ mapR1, mapR2 = cv2.initUndistortRectifyMap(mtxR, distR, R2, P2, image_size, cv2.
 #)
 
 window_size = 7
-min_disp = 16
-num_disp = 16   # ต้องหารด้วย 16 ลงตัว เช่น 16, 32, 64, ...
+min_disp = 0
+num_disp = 64  # ต้องหารด้วย 16 ลงตัว
 
-stereo = cv2.StereoSGBM(
+stereo = cv2.StereoSGBM_create(
     minDisparity=min_disp,
     numDisparities=num_disp,
-    SADWindowSize=window_size,
-
+    blockSize=window_size,
     P1=8 * 3 * window_size ** 2,
     P2=32 * 3 * window_size ** 2,
-
     disp12MaxDiff=1,
     uniquenessRatio=10,
     speckleWindowSize=50,
     speckleRange=2,
-    fullDP=False
+    mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY
 )
 
+
 print("\nเริ่มต้นแสดงภาพ... กด 'q' เพื่อออกจากโปรแกรม")
-disp = stereo.compute(capL, capR).astype(np.float32) / 16.0
-disp_img = (disp - min_disp) / num_disp
 
-
-#print("\nเริ่มต้นแสดงภาพ... กด 'q' เพื่อออกจากโปรแกรม")
-
-# --- 6. วนลูปเพื่อแสดงผล ---
 while True:
     retL, frameL = capL.read()
     retR, frameR = capR.read()
     if not retL or not retR:
         break
 
-    # 6.1 ทำการ Rectify ภาพ
+    # Rectify
     rectifiedL = cv2.remap(frameL, mapL1, mapL2, cv2.INTER_LINEAR)
     rectifiedR = cv2.remap(frameR, mapR1, mapR2, cv2.INTER_LINEAR)
 
-    # 6.2 คำนวณ Disparity Map
+    # แปลงเป็น Gray
     grayL = cv2.cvtColor(rectifiedL, cv2.COLOR_BGR2GRAY)
     grayR = cv2.cvtColor(rectifiedR, cv2.COLOR_BGR2GRAY)
-    disparity = stereo.compute(grayL, grayR).astype(np.float32) / 16.0
-    
-    # 6.3 ทำให้ Disparity Map มองเห็นได้ชัดเจน
-    disparity_visual = cv2.normalize(disparity, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 
-    # --- ✨ 6.4 ส่วนของการแสดงผลที่เปลี่ยนแปลง ---
-    
-    # วาดเส้นแนวนอนบนภาพ Rectified เพื่อช่วยในการตรวจสอบ
+    # คำนวณ Disparity
+    disparity = stereo.compute(grayL, grayR).astype(np.float32) / 16.0
+
+    # Normalize ให้เห็นชัดขึ้น
+    disparity_visual = cv2.normalize(
+        disparity, None, alpha=0, beta=255,
+        norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
+    )
+
+    # วาดเส้นช่วยเช็ค rectification
     for i in range(20, image_size[1], 50):
         cv2.line(rectifiedL, (0, i), (image_size[0], i), (0, 255, 0), 1)
         cv2.line(rectifiedR, (0, i), (image_size[0], i), (0, 255, 0), 1)
 
-    # สร้างหน้าต่างสำหรับแสดงภาพ Rectified ซ้าย-ขวา เทียบกัน
+    # แสดงภาพ
     rectified_pair = np.hstack((rectifiedL, rectifiedR))
     cv2.imshow('Rectified Stereo Pair', rectified_pair)
-    
-    # สร้างหน้าต่างสำหรับแสดง Disparity Map แยกต่างหาก
     cv2.imshow('Disparity Map', disparity_visual)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# --- 7. คืนทรัพยากร ---
 capL.release()
 capR.release()
 cv2.destroyAllWindows()
